@@ -6,13 +6,11 @@ import jakarta.faces.model.SelectItem;
 import jakarta.faces.view.ViewScoped;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import ma.emsi.amine.tp1_api_direct.llm.JsonUtilPourGemini;
-import ma.emsi.amine.tp1_api_direct.llm.LlmInteraction;
+import ma.emsi.amine.langchain4j2.llm.LlmClientPourGemini;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 
 /**
  * Backing bean pour la page JSF index.xhtml.
@@ -47,50 +45,12 @@ public class Bb implements Serializable {
      */
     private StringBuilder conversation = new StringBuilder();
 
-    /**
-     * Contexte JSF. Utilisé pour qu'un message d'erreur s'affiche dans le formulaire.
-     */
-
-    private String texteRequeteJson;
-    private String texteReponseJson;
-    private boolean debug;
-
-    // Getters et setters pour les nouvelles propriétés
-    public String getTexteRequeteJson() {
-        return texteRequeteJson;
-    }
-
-    public void setTexteRequeteJson(String texteRequeteJson) {
-        this.texteRequeteJson = texteRequeteJson;
-    }
-
-    public String getTexteReponseJson() {
-        return texteReponseJson;
-    }
-
-    public void setTexteReponseJson(String texteReponseJson) {
-        this.texteReponseJson = texteReponseJson;
-    }
-
-    public boolean isDebug() {
-        return debug;
-    }
-
-    public void setDebug(boolean debug) {
-        this.debug = debug;
-    }
-
-    // Méthode pour basculer le mode debug
-    public String toggleDebug() {
-        this.debug = !this.debug;
-        return null; // Rester sur la même page
-    }
+    @Inject
+    private LlmClientPourGemini llmClientPourGemini;
     
     @Inject
     private FacesContext facesContext;
 
-    @Inject
-    private JsonUtilPourGemini jsonUtilPourGemini;
 
     /**
      * Obligatoire pour un bean CDI (classe gérée par CDI).
@@ -155,25 +115,8 @@ public class Bb implements Serializable {
             facesContext.addMessage(null, message);
             return null;
         }
-        try {
-            // Appel à JsonUtil pour traiter la question
-            LlmInteraction interaction = jsonUtilPourGemini.envoyerRequete(question);
-            this.reponse = interaction.reponseExtraite();
-            this.texteRequeteJson = interaction.questionJson();
-            this.texteReponseJson = interaction.reponseJson();
-        } catch (Exception e) {
-            e.printStackTrace();
-            FacesMessage message = new FacesMessage(FacesMessage.SEVERITY_ERROR,
-                    "Problème de connexion avec l'API du LLM",
-                    "Problème de connexion avec l'API du LLM : " + e.getMessage());
-            facesContext.addMessage(null, message);
-            return null;
-        }
-        // Mise à jour de la conversation
-        if (this.conversation.isEmpty()) {
-            this.reponse = systemRole.toUpperCase(Locale.FRENCH) + "\n" + this.reponse;
-            this.systemRoleChangeable = false;
-        }
+        llmClientPourGemini.setSystemRole(systemRole);
+        reponse = llmClientPourGemini.envoyerMessage(question);
         afficherConversation();
         return null;
     }
